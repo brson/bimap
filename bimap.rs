@@ -17,8 +17,13 @@ impl hashbimap_map<K, V> of std::map::map<K, V> for hashbimap<K, V> {
 
     // TODO Fix this.
     fn insert (+K: K, +V: V) -> bool {
+        let prior = self.remove(K)
         self.vk.insert(V, K);
         self.kv.insert(K, V)
+        alt prior {
+            none { false }
+            some(_K) { true }
+        }
     }
 
     fn contains_key (K: K) -> bool { self.kv.contains_key(K) }
@@ -62,7 +67,7 @@ fn getKey<K: copy, V: const> (self: hashbimap<K, V>, V: V) -> K {
     self.vk.get(V) 
 }
 
-fn bimap<K: const, clone, V: const, clone> (
+fn bimap<K: const, copy, V: const, copy> (
     key_hasher: fn@ (K) -> uint,
     key_eqler: fn@ (K, K) -> bool,
     val_hasher: fn@ (V) -> uint,
@@ -85,7 +90,7 @@ mod test {
 
     #[test]
     fn testCreation () {
-        let bimap: hashbimap<int, str> = bimap(int::hash, int::eq,
+        let bimap: hashbimap<int, str> = bimap::<int, str>(int::hash, int::eq,
             str::hash, str::eq);
         checkRep(bimap);
 

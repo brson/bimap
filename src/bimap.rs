@@ -1,4 +1,4 @@
-#[link(name = "bimap", vers = "0.9", author = "Havvy")];
+#[link(name = "bimap", vers = "0.9.1", author = "Havvy")];
 
 /**
 This is an implementation of a bimap done using two hashmaps. I cannot speak
@@ -44,7 +44,8 @@ hashbimap<K, V> {
     fn clear () { self.kv.clear(); self.vk.clear() }
 }
 
-iface bimap<K: const copy, V: const copy> { 
+iface bimap<K: const copy, V: const copy> {
+    fn contains_value (V) -> bool;
     fn get_key (V) -> K;
     fn find_key (V) -> option<K>;
     fn remove_key (V) -> option<K>;
@@ -52,6 +53,7 @@ iface bimap<K: const copy, V: const copy> {
 
 impl hashbimap_bimap<K: const copy, V: const copy> of bimap<K,V> 
 for hashbimap<K, V> {
+    fn contains_value (V: V) -> bool { self.vk.contains_key(V) }
     fn get_key (V: V) -> K { self.vk.get(V) }
     fn find_key (V: V) -> option<K> { self.vk.find(V) }
     fn remove_key (V: V) -> option<K> {

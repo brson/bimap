@@ -35,3 +35,12 @@ fn bimap<K: const copy, V: const copy> (fn (K) -> uint, fn (K, K) -> bool,
 fn (V) -> uint, fn (V, V) -> bool) -> hashbimap<K, V>
 
 The functions in order, are hash_key, eql_key, hash_value, eql_value.
+
+## Thanks
+
+The following people have helped me out with the bimap:
+
+* z0w0
+* ehold
+* jld
+* nmatsakis

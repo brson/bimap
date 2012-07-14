@@ -130,12 +130,17 @@ mod test {
         assert (hbm_uu.insert(11u, 13u));
         assert (hbm_uu.insert(12u, 14u));
         assert (hbm_uu.get(11u) == 13u);
+        assert (hbm_uu.get_key(13u) == 11u);
         assert (hbm_uu.get(12u) == 14u);
+        assert (hbm_uu.get_key(14u) == 12u);
         assert (hbm_uu.get(10u) == 12u);
+        assert (hbm_uu.get_key(12u) == 10u);
         assert (!hbm_uu.insert(12u, 14u));
         assert (hbm_uu.get(12u) == 14u);
+        assert (hbm_uu.get_key(14u) == 12u);
         assert (!hbm_uu.insert(12u, 12u));
         assert (hbm_uu.get(12u) == 12u);
+        assert (hbm_uu.get_key(12u) == 12u);
         let ten: str = "ten";
         let eleven: str = "eleven";
         let twelve: str = "twelve";

@@ -17,9 +17,9 @@ impl hashbimap_map<K, V> of std::map::map<K, V> for hashbimap<K, V> {
 
     // TODO Fix this.
     fn insert (+K: K, +V: V) -> bool {
-        let prior = self.remove(K)
+        let prior = self.remove(K);
         self.vk.insert(V, K);
-        self.kv.insert(K, V)
+        self.kv.insert(K, V);
         alt prior {
             none { false }
             some(_K) { true }

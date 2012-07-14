@@ -12,10 +12,10 @@ import std::map::hashmap;
 
 type hashbimap<K, V> = {kv: hashmap<K, V>, vk: hashmap<V, K>};
 
-impl hashbimap_map<K, V> of std::map::map<K, V> for hashbimap<K, V> {
+impl hashbimap_map<K: const copy, V: const copy> of std::map::map<K, V> for
+hashbimap<K, V> {
     fn size () -> uint { self.kv.size() }
 
-    // TODO Fix this.
     fn insert (+K: K, +V: V) -> bool {
         let prior = self.remove(K);
         self.vk.insert(V, K);
@@ -49,25 +49,17 @@ impl hashbimap_map<K, V> of std::map::map<K, V> for hashbimap<K, V> {
     fn clear () { self.kv.clear(); self.vk.clear() }
 }
 
-#[fixme]
-/*
+iface bimap<K: copy, V: const> { fn getKey (V) -> K; }
 
-iface bimap<K, V> { fn getKey<K, V> (V) -> K; }
-
-impl hashbimap_bimap<K, V> of bimap<K,V> for hashbimap<K, V> {
+impl hashbimap_bimap<K: const copy, V: const copy> of bimap<K,V> 
+for hashbimap<K, V> {
     fn getKey (V: V) -> K { 
         let vk: hashmap<V, K> = self.vk;
         ret vk.get(V)
     }
 }
 
-*/
-
-fn getKey<K: copy, V: const> (self: hashbimap<K, V>, V: V) -> K { 
-    self.vk.get(V) 
-}
-
-fn bimap<K: const, copy, V: const, copy> (
+fn bimap<K: const copy, V: const copy> (
     key_hasher: fn@ (K) -> uint,
     key_eqler: fn@ (K, K) -> bool,
     val_hasher: fn@ (V) -> uint,
@@ -81,11 +73,11 @@ fn bimap<K: const, copy, V: const, copy> (
 
 #[cfg(test)]
 mod test {
-    fn checkRep<K, V> (bimap: hashbimap<K, V>) {
+    fn checkRep<K: const copy, V: const copy> (+bimap: hashbimap<K, V>) {
         assert bimap.vk.size() == bimap.kv.size();
 
         // For each key, the value matches the key.
-        bimap.kv.each(|K, V| { assert getKey(bimap, V) == K; true });
+        bimap.kv.each(|K, V| { assert bimap.getKey(V) == K; true });
     }
 
     #[test]
@@ -102,5 +94,8 @@ mod test {
 
         assert bimap.get(0) == "abc";
         assert bimap.get(1) == "def";
+
+        assert bimap.getKey("abc") == 0;
+        assert bimap.getKey("def") == 1;
     }
 }

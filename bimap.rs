@@ -44,10 +44,22 @@ impl hashbimap_map<K, V> of std::map::map<K, V> for hashbimap<K, V> {
     fn clear () { self.kv.clear(); self.vk.clear() }
 }
 
+#[fixme]
+/*
+
 iface bimap<K, V> { fn getKey<K, V> (V) -> K; }
 
 impl hashbimap_bimap<K, V> of bimap<K,V> for hashbimap<K, V> {
-    fn getKey<K, V> (V: V) -> K { self.vk.get(V) }
+    fn getKey (V: V) -> K { 
+        let vk: hashmap<V, K> = self.vk;
+        ret vk.get(V)
+    }
+}
+
+*/
+
+fn getKey<K: copy, V: const> (self: hashbimap<K, V>, V: V) -> K { 
+    self.vk.get(V) 
 }
 
 fn bimap<K: const, clone, V: const, clone> (
@@ -64,13 +76,11 @@ fn bimap<K: const, clone, V: const, clone> (
 
 #[cfg(test)]
 mod test {
-    fn checkRep<K, V> (bimap: hashbimap<K, V>) -> bool {
+    fn checkRep<K, V> (bimap: hashbimap<K, V>) {
         assert bimap.vk.size() == bimap.kv.size();
 
-        // For each key, 
-        bimap.kv.each(|K, V| -> bool {
-            assert bimap.getKey(V) == K
-        });
+        // For each key, the value matches the key.
+        bimap.kv.each(|K, V| { assert getKey(bimap, V) == K; true });
     }
 
     #[test]

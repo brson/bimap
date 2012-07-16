@@ -94,19 +94,13 @@ mod test {
         bimap.kv.each(|&&K, &&V| { assert bimap.get_key(V) == K; true });
     }
 
-    fn ref_hash<T> (hasher: fn (T) -> uint) -> fn (@T) -> uint {
-        fn@ (t: @T) -> uint { hasher(*t) }
-    }
-
-    fn ref_eqer<T> (eqer: fn (T, T) -> bool) -> fn (@T, @T) -> bool {
-        fn@ (t1: @T, t2: @T) -> bool { eqer(*t1, *t2) }
-    }
+    fn rstr_hash (&&s: @str) -> uint { str::hash(*s) }
+    fn rstr_eqer (&&s1: @str, &&s2: @str) -> bool { str::eq(*s1, *s2) }
 
     #[test]
     fn test_creation () {
         let bimap: hashbimap<int, @str> = bimap::<int, @str>(
-            int::hash, int::eq,
-            ref_hash::<str>(str::hash), ref_eqer::<str>(str::eq));
+            int::hash, int::eq, rstr_hash, rstr_eqer);
         checkRep(bimap);
 
         bimap.insert(0, @"abc");
@@ -131,8 +125,8 @@ mod test {
         fn uint_id(&&x: uint) -> uint { x }
         let hasher_uint: map::hashfn<uint> = uint_id;
         let eqer_uint: map::eqfn<uint> = eq_uint;
-        let hasher_str: map::hashfn<@str> = ref_hash::<str>(str::hash);
-        let eqer_str: map::eqfn<@str> = ref_eqer::<str>(str::eq);
+        let hasher_str: map::hashfn<@str> = rstr_hash;
+        let eqer_str: map::eqfn<@str> = rstr_eqer;
         #debug("uint -> uint");
         let hbm_uu: hashbimap<uint, uint> = bimap::<uint, uint>(
             hasher_uint, eqer_uint, hasher_uint, eqer_uint);
@@ -234,8 +228,8 @@ mod test {
             i += 1u;
         }
         #debug("str -> str");
-        let hasher_str: map::hashfn<@str> = ref_hash::<str>(str::hash);
-        let eqer_str: map::eqfn<@str> = ref_eqer::<str>(str::eq);
+        let hasher_str: map::hashfn<@str> = rstr_hash;
+        let eqer_str: map::eqfn<@str> = rstr_eqer;
         let hbm_ss: hashbimap<@str, @str> =
             bimap::<@str, @str>(hasher_str, eqer_str, hasher_str, eqer_str);
         i = 0u;
@@ -353,8 +347,8 @@ mod test {
 
     #[test]
     fn test_contains_key() {
-        let strr_hash = ref_hash::<str>(str::hash);
-        let strr_eqer = ref_eqer::<str>(str::eq);
+        let strr_hash = rstr_hash;
+        let strr_eqer = rstr_eqer;
         let key = @"k";
         let map = bimap::<@str, @str>(strr_hash, strr_eqer, 
             strr_hash, strr_eqer);
@@ -365,8 +359,8 @@ mod test {
 
     #[test]
     fn test_find() {
-        let strr_hash = ref_hash::<str>(str::hash);
-        let strr_eqer = ref_eqer::<str>(str::eq);
+        let strr_hash = rstr_hash;
+        let strr_eqer = rstr_eqer;
         let key = @"k";
         let map = bimap::<@str, @str>(strr_hash, strr_eqer, 
             strr_hash, strr_eqer);
@@ -377,8 +371,8 @@ mod test {
 
     #[test]
     fn test_clear() {
-        let strr_hash = ref_hash::<str>(str::hash);
-        let strr_eqer = ref_eqer::<str>(str::eq);
+        let strr_hash = rstr_hash;
+        let strr_eqer = rstr_eqer;
         let key = @"k";
         let map = bimap::<@str, @str>(strr_hash, strr_eqer, 
             strr_hash, strr_eqer);

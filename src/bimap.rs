@@ -5,15 +5,18 @@ to its speed or size or any characteristics you care about if you care about
 code metrics. Use this when you need a bimap, and performance doesn't matter.
 */
 
-use std;
-import std::map;
-import std::map::hashmap;
+extern mod std;
+use std::map;
+use std::map::Map;
+use std::map::HashMap;
+use cmp::Eq;
+use to_bytes::IterBytes;
+use hash::Hash;
 
-type hashbimap<K, V> = {kv: hashmap<K, V>, vk: hashmap<V, K>};
+type hashbimap<K, V> = {kv: HashMap<K, V>, vk: HashMap<V, K>};
 
-impl hashbimap_map<K: const copy, V: const copy> of std::map::map<K, V> for
-hashbimap<K, V> {
-    fn size () -> uint { self.kv.size() }
+impl<K: Const Copy Eq IterBytes Hash, V: Const Copy Eq IterBytes Hash> hashbimap<K, V> : std::map::Map<K, V> {
+    pure fn size () -> uint { self.kv.size() }
 
     fn insert (+K: K, +V: V) -> bool {
         self.vk.insert(V, K);
@@ -21,49 +24,60 @@ hashbimap<K, V> {
     }
 
     fn contains_key (K: K) -> bool { self.kv.contains_key(K) }
-    fn get (K: K) -> V { self.kv.get(K) }
-    fn [] (K: K) -> V { self.kv[K] }
-    fn find (K: K) -> option<V> { self.kv.find(K) }
+    fn contains_key_ref(K: &K) -> bool { self.kv.contains_key_ref(K) }
 
-    fn remove (K: K) -> option<V> {
-        let v = self.kv.remove(K);
-        alt v {
-            none { ret v }
-            some(vv) {
+    fn get (K: K) -> V { self.kv.get(K) }
+    pure fn find (K: K) -> Option<V> { self.kv.find(K) }
+
+    fn remove (K: K) -> bool {
+        let v = self.kv.find(K);
+        match v {
+            None => { return false; }
+            Some(vv) => {
+                self.kv.remove(K);
                 self.vk.remove(vv);
-                ret v;
+                return true;
             }
         }
     }
 
-    fn each (mapfn: fn(K, V) -> bool) { self.kv.each(mapfn) }
-    fn each_key (mapfn: fn(K) -> bool) { self.kv.each_key(mapfn) }
-    fn each_value (mapfn: fn(V) -> bool) { self.vk.each_key(mapfn) }
+    pure fn each (mapfn: fn(K, V) -> bool) { self.kv.each(mapfn) }
+    pure fn each_key (mapfn: fn(K) -> bool) { self.kv.each_key(mapfn) }
+    pure fn each_value (mapfn: fn(V) -> bool) { self.vk.each_key(mapfn) }
+    pure fn each_ref (mapfn: fn(&K, &V) -> bool) { self.kv.each_ref(mapfn) }
+    pure fn each_key_ref (mapfn: fn(&K) -> bool) { self.kv.each_key_ref(mapfn) }
+    pure fn each_value_ref (mapfn: fn(&V) -> bool) { self.vk.each_key_ref(mapfn) }
 
     fn clear () { self.kv.clear(); self.vk.clear() }
 }
 
-iface bimap<K: const copy, V: const copy> {
+trait bimap<K: Const Copy, V: Const Copy> {
     fn contains_value (V) -> bool;
     fn get_key (V) -> K;
-    fn find_key (V) -> option<K>;
-    fn remove_key (V) -> option<K>;
+    fn find_key (V) -> Option<K>;
+    fn remove_key (V) -> bool;
 }
 
-impl hashbimap_bimap<K: const copy, V: const copy> of bimap<K,V> 
-for hashbimap<K, V> {
+impl<K: Const Copy Eq IterBytes Hash, V: Const Copy Eq IterBytes Hash> hashbimap<K, V> : bimap<K,V> {
     fn contains_value (V: V) -> bool { self.vk.contains_key(V) }
     fn get_key (V: V) -> K { self.vk.get(V) }
-    fn find_key (V: V) -> option<K> { self.vk.find(V) }
-    fn remove_key (V: V) -> option<K> {
-        let k = self.vk.remove(V);
-        alt k {
-            none { ret k }
-            some(kk) {
+    fn find_key (V: V) -> Option<K> { self.vk.find(V) }
+    fn remove_key (V: V) -> bool {
+        let k = self.vk.find(V);
+        match k {
+            None => { return false }
+            Some(kk) => {
+                self.vk.remove(V);
                 self.kv.remove(kk);
-                ret k;
+                return true;
             }
         }
+    }
+}
+
+impl<K: Copy Eq IterBytes Hash, V: Copy> hashbimap<K, V> : ops::Index<K, V> {
+    pure fn index(+index: K) -> V {
+        self.kv[index]
     }
 }
 
@@ -72,34 +86,25 @@ fn reverse<K, V> (self: hashbimap<K, V>) -> hashbimap<V, K> {
     {kv: self.vk, vk: self.kv}
 }
 
-fn bimap<K: const copy, V: const copy> (
-    key_hasher: fn@ (K) -> uint,
-    key_eqler: fn@ (K, K) -> bool,
-    val_hasher: fn@ (V) -> uint,
-    val_eqler: fn@ (V, V) -> bool) -> hashbimap<K, V> {
-
+fn bimap<K: Const Copy Eq IterBytes Hash, V: Const Copy Eq IterBytes Hash> () -> hashbimap<K, V> {
     {
-        kv: hashmap::<K, V>(key_hasher, key_eqler), 
-        vk: hashmap::<V, K>(val_hasher, val_eqler) 
+        kv: HashMap::<K, V>(), 
+        vk: HashMap::<V, K>() 
     }
 }
 
 #[cfg(test)]
 mod test {
-    fn checkRep<K: const copy, V: const copy> (+bimap: hashbimap<K, V>) {
+    fn checkRep<K: Const Copy Eq IterBytes Hash, V: Const Copy Eq IterBytes Hash> (+bimap: hashbimap<K, V>) {
         assert bimap.vk.size() == bimap.kv.size();
 
         // For each key, the value matches the key.
-        bimap.kv.each(|&&K, &&V| { assert bimap.get_key(V) == K; true });
+        bimap.kv.each(|K, V| { assert bimap.get_key(V) == K; true });
     }
-
-    fn rstr_hash (&&s: @str) -> uint { str::hash(*s) }
-    fn rstr_eqer (&&s1: @str, &&s2: @str) -> bool { str::eq(*s1, *s2) }
 
     #[test]
     fn test_creation () {
-        let bimap: hashbimap<int, @str> = bimap::<int, @str>(
-            int::hash, int::eq, rstr_hash, rstr_eqer);
+        let bimap: hashbimap<int, @str> = bimap::<int, @str>();
         checkRep(bimap);
 
         bimap.insert(0, @"abc");
@@ -120,15 +125,10 @@ mod test {
     #[test]
     fn test_simple() {
         #debug("*** starting test_simple");
-        fn eq_uint(&&x: uint, &&y: uint) -> bool { ret x == y; }
+        fn eq_uint(&&x: uint, &&y: uint) -> bool { return x == y; }
         fn uint_id(&&x: uint) -> uint { x }
-        let hasher_uint: map::hashfn<uint> = uint_id;
-        let eqer_uint: map::eqfn<uint> = eq_uint;
-        let hasher_str: map::hashfn<@str> = rstr_hash;
-        let eqer_str: map::eqfn<@str> = rstr_eqer;
         #debug("uint -> uint");
-        let hbm_uu: hashbimap<uint, uint> = bimap::<uint, uint>(
-            hasher_uint, eqer_uint, hasher_uint, eqer_uint);
+        let hbm_uu: hashbimap<uint, uint> = bimap::<uint, uint>();
         assert (hbm_uu.insert(10u, 12u));
         assert (hbm_uu.insert(11u, 13u));
         assert (hbm_uu.insert(12u, 14u));
@@ -149,7 +149,7 @@ mod test {
         let twelve: @str = @"twelve";
         #debug("str -> uint");
         let hbm_su: hashbimap<@str, uint> = 
-            bimap::<@str, uint>(hasher_str, eqer_str, hasher_uint, eqer_uint);
+            bimap::<@str, uint>();
         assert (hbm_su.insert(@"ten", 12u));
         assert (hbm_su.insert(eleven, 13u));
         assert (hbm_su.insert(@"twelve", 14u));
@@ -163,30 +163,30 @@ mod test {
         assert (hbm_su.get(@"twelve") == 12u);
         #debug("uint -> str");
         let hbm_us: hashbimap<uint, @str> =
-            bimap::<uint, @str>(hasher_uint, eqer_uint, hasher_str, eqer_str);
+            bimap::<uint, @str>();
         assert (hbm_us.insert(10u, @"twelve"));
         assert (hbm_us.insert(11u, @"thirteen"));
         assert (hbm_us.insert(12u, @"fourteen"));
-        assert (str::eq(*hbm_us.get(11u), "thirteen"));
-        assert (str::eq(*hbm_us.get(12u), "fourteen"));
-        assert (str::eq(*hbm_us.get(10u), "twelve"));
+        assert (hbm_us.get(11u) == @"thirteen");
+        assert (hbm_us.get(12u) == @"fourteen");
+        assert (hbm_us.get(10u) == @"twelve");
         assert (!hbm_us.insert(12u, @"fourteen"));
-        assert (str::eq(*hbm_us.get(12u), "fourteen"));
+        assert (hbm_us.get(12u) == @"fourteen");
         assert (!hbm_us.insert(12u, @"twelve"));
-        assert (str::eq(*hbm_us.get(12u), "twelve"));
+        assert (hbm_us.get(12u) == @"twelve");
         #debug("str -> str");
         let hbm_ss: hashbimap<@str, @str> =
-            bimap::<@str, @str>(hasher_str, eqer_str, hasher_str, eqer_str);
+            bimap::<@str, @str>();
         assert (hbm_ss.insert(ten, @"twelve"));
         assert (hbm_ss.insert(eleven, @"thirteen"));
         assert (hbm_ss.insert(twelve, @"fourteen"));
-        assert (str::eq(*hbm_ss.get(@"eleven"), "thirteen"));
-        assert (str::eq(*hbm_ss.get(@"twelve"), "fourteen"));
-        assert (str::eq(*hbm_ss.get(@"ten"), "twelve"));
+        assert (hbm_ss.get(@"eleven") == @"thirteen");
+        assert (hbm_ss.get(@"twelve") == @"fourteen");
+        assert (hbm_ss.get(@"ten") == @"twelve");
         assert (!hbm_ss.insert(@"twelve", @"fourteen"));
-        assert (str::eq(*hbm_ss.get(@"twelve"), "fourteen"));
+        assert (hbm_ss.get(@"twelve") == @"fourteen");
         assert (!hbm_ss.insert(@"twelve", @"twelve"));
-        assert (str::eq(*hbm_ss.get(@"twelve"), "twelve"));
+        assert (hbm_ss.get(@"twelve") == @"twelve");
         #debug("*** finished test_simple");
     }
 
@@ -197,13 +197,10 @@ mod test {
     fn test_growth() {
         #debug("*** starting test_growth");
         let num_to_insert: uint = 64u;
-        fn eq_uint(&&x: uint, &&y: uint) -> bool { ret x == y; }
+        fn eq_uint(&&x: uint, &&y: uint) -> bool { return x == y; }
         fn uint_id(&&x: uint) -> uint { x }
         #debug("uint -> uint");
-        let hasher_uint: map::hashfn<uint> = uint_id;
-        let eqer_uint: map::eqfn<uint> = eq_uint;
-        let hbm_uu: hashbimap<uint, uint> = bimap::<uint, uint>(
-            hasher_uint, eqer_uint, hasher_uint, eqer_uint);
+        let hbm_uu: hashbimap<uint, uint> = bimap::<uint, uint>();
         let mut i: uint = 0u;
         while i < num_to_insert {
             assert (hbm_uu.insert(i, i * i));
@@ -227,10 +224,8 @@ mod test {
             i += 1u;
         }
         #debug("str -> str");
-        let hasher_str: map::hashfn<@str> = rstr_hash;
-        let eqer_str: map::eqfn<@str> = rstr_eqer;
-        let hbm_ss: hashbimap<@str, @str> =
-            bimap::<@str, @str>(hasher_str, eqer_str, hasher_str, eqer_str);
+        let hbm_ss: hashbimap<@~str, @~str> =
+            bimap::<@~str, @~str>();
         i = 0u;
         while i < num_to_insert {
             assert hbm_ss.insert(@uint::to_str(i, 2u), 
@@ -246,22 +241,19 @@ mod test {
             #debug("get(\"%s\") = \"%s\"",
                    uint::to_str(i, 2u),
                    *hbm_ss.get(@uint::to_str(i, 2u)));
-            assert (str::eq(*hbm_ss.get(@uint::to_str(i, 2u)),
-                            uint::to_str(i * i, 2u)));
+            assert (hbm_ss.get(@uint::to_str(i, 2u)) == @uint::to_str(i * i, 2u));
             i += 1u;
         }
         assert (hbm_ss.insert(@uint::to_str(num_to_insert, 2u),
                              @uint::to_str(17u, 2u)));
-        assert (str::eq(*hbm_ss.get(@uint::to_str(num_to_insert, 2u)),
-                        uint::to_str(17u, 2u)));
+        assert (hbm_ss.get(@uint::to_str(num_to_insert, 2u)) == @uint::to_str(17u, 2u));
         #debug("-----");
         i = 0u;
         while i < num_to_insert {
             #debug("get(\"%s\") = \"%s\"",
                    uint::to_str(i, 2u),
                    *hbm_ss.get(@uint::to_str(i, 2u)));
-            assert (str::eq(*hbm_ss.get(@uint::to_str(i, 2u)),
-                            uint::to_str(i * i, 2u)));
+            assert (hbm_ss.get(@uint::to_str(i, 2u)) == @uint::to_str(i * i, 2u));
             i += 1u;
         }
         #debug("*** finished test_growth");
@@ -271,20 +263,18 @@ mod test {
     fn test_removal() {
         #debug("*** starting test_removal");
         let num_to_insert: uint = 64u;
-        fn eq(&&x: uint, &&y: uint) -> bool { ret x == y; }
+        fn eq(&&x: uint, &&y: uint) -> bool { return x == y; }
         fn hash(&&u: uint) -> uint {
             // This hash function intentionally causes collisions between
             // consecutive integer pairs.
 
-            ret u / 2u * 2u;
+            return u / 2u * 2u;
         }
         assert (hash(0u) == hash(1u));
         assert (hash(2u) == hash(3u));
         assert (hash(0u) != hash(2u));
-        let hasher: map::hashfn<uint> = hash;
-        let eqer: map::eqfn<uint> = eq;
         let hbm: hashbimap<uint, uint> = 
-            bimap::<uint, uint>(hasher, eqer, hasher, eqer);
+            bimap::<uint, uint>();
         let mut i: uint = 0u;
         while i < num_to_insert {
             assert (hbm.insert(i, i * i));
@@ -297,10 +287,7 @@ mod test {
         i = 0u;
         while i < num_to_insert {
             let v = hbm.remove(i);
-            alt v {
-              option::some(u) { assert (u == i * i); }
-              option::none { fail; }
-            }
+            assert v;
             i += 2u;
         }
         assert (hbm.size() == num_to_insert / 2u);
@@ -346,11 +333,8 @@ mod test {
 
     #[test]
     fn test_contains_key() {
-        let strr_hash = rstr_hash;
-        let strr_eqer = rstr_eqer;
         let key = @"k";
-        let map = bimap::<@str, @str>(strr_hash, strr_eqer, 
-            strr_hash, strr_eqer);
+        let map = bimap::<@str, @str>();
         assert (!map.contains_key(key));
         map.insert(key, @"val");
         assert (map.contains_key(key));
@@ -358,23 +342,17 @@ mod test {
 
     #[test]
     fn test_find() {
-        let strr_hash = rstr_hash;
-        let strr_eqer = rstr_eqer;
         let key = @"k";
-        let map = bimap::<@str, @str>(strr_hash, strr_eqer, 
-            strr_hash, strr_eqer);
-        assert (option::is_none(map.find(key)));
+        let map = bimap::<@str, @str>();
+        assert (option::is_none(&map.find(key)));
         map.insert(key, @"val");
-        assert (option::get(map.find(key)) == @"val");
+        assert (option::get(&map.find(key)) == @"val");
     }
 
     #[test]
     fn test_clear() {
-        let strr_hash = rstr_hash;
-        let strr_eqer = rstr_eqer;
         let key = @"k";
-        let map = bimap::<@str, @str>(strr_hash, strr_eqer, 
-            strr_hash, strr_eqer);
+        let map = bimap::<@str, @str>();
         map.insert(key, @"val");
         assert (map.size() == 1);
         assert (map.contains_key(key));

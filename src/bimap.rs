@@ -1,4 +1,3 @@
-#[link(name = "bimap", vers = "0.9.1", author = "Havvy")];
 
 /**
 This is an implementation of a bimap done using two hashmaps. I cannot speak

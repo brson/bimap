@@ -1,0 +1,1 @@
+#[link(name = "bimap", vers = "0.9.1", author = "Havvy")];
